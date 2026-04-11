@@ -308,6 +308,8 @@ def prepare_slide_cache(
         meta_out = {
             "fullres_width": int(meta.get("fullres_px_width", meta.get("fullres_width", w0))),
             "fullres_height": int(meta.get("fullres_px_height", meta.get("fullres_height", h0))),
+            "he_content_width": int(img.shape[1]),
+            "he_content_height": int(img.shape[0]),
             "he_width": int(he_img.shape[1]),
             "he_height": int(he_img.shape[0]),
         }
@@ -344,8 +346,10 @@ def prepare_slide_cache(
         meta_out = json.loads((slide_dir / "cache_meta.json").read_text(encoding="utf-8"))
         full_w = float(meta_out["fullres_width"])
         full_h = float(meta_out["fullres_height"])
-        he_w = float(meta_out["he_width"])
-        he_h = float(meta_out["he_height"])
+        # Spot coordinates should align to the actual thumbnail content, not
+        # the padded canvas later used for HIPT patch extraction.
+        he_w = float(meta_out.get("he_content_width", meta_out["he_width"]))
+        he_h = float(meta_out.get("he_content_height", meta_out["he_height"]))
         scale_x = he_w / full_w
         scale_y = he_h / full_h
 
