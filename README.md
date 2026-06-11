@@ -1,144 +1,192 @@
-<div align="center">
+# Morpho-FM
 
-# Morpho-VC: Morphological Virtual Cell
-### 形态学虚拟细胞系统（以 Morpho-VC 创新流程为核心）
+**Spatial molecular reconstruction from routine H&E histology using transcriptomic foundation model priors**
 
-[English](#english) | [中文](#中文)
+Jinjin Huang<sup>1</sup>, Xiao Feng<sup>1</sup>, Lianghu Qu<sup>1</sup>, Lingling Zheng<sup>1,*</sup>
 
-</div>
+<sup>1</sup> MOE Key Laboratory of Gene Function and Regulation, State Key Laboratory for Biocontrol,
+Innovation Center for Evolutionary Synthetic Biology, School of Life Sciences / School of Agriculture
+and Biotechnology, Sun Yat-sen University Shenzhen Campus, Shenzhen 518107, China.
 
----
+<sup>*</sup> Correspondence: Lingling Zheng
+([zhengll33@mail.sysu.edu.cn](mailto:zhengll33@mail.sysu.edu.cn); Tel. +86-0755-23260262)
 
-<a name="english"></a>
-## 🇬🇧 English
+Morpho-FM reconstructs spatial molecular profiles from routine H&E histology by combining
+cell-level morphology representations with transcriptomic foundation model priors. The current
+implementation supports multiple-instance learning from cell embeddings to Visium-like spots,
+gene-aware decoding with CellFM/scGPT-style priors, negative-binomial supervision, and
+whole-slide prediction workflows.
 
-**Morpho-VC** is a virtual cell system that predicts **spatial transcriptomic gene expression** from H&E whole-slide images. The project emphasizes a **cell-to-spot ST-MIL pipeline**, gene-aware supervision, and scalable training, with external components plugged in as needed.
+## Workflow
 
-### Key Features (Our Innovations)
-- **Cell-to-spot ST-MIL pipeline** with explicit spot aggregation and NB (Negative Binomial) loss.
-- **Gene-aware training strategy** with chunked supervision to scale to large gene sets.
-- **Multi-slice training + evaluation workflow** (train/val/test split across slides).
-- **Notebook-first reproducibility** with a single main workflow (`notebooks/01_st_mil_hest_multi.ipynb`).
+![Morpho-FM workflow](Fig/workflow.png)
 
-### User Guide
-- [User Guide (Chinese)](docs/User_Guide_CN.md)
+The workflow starts from H&E whole-slide images and matched spatial transcriptomics data. Tissue
+regions, spatial spots, and cell-level image patches are prepared first; visual encoders then extract
+cell morphology embeddings. Morpho-FM maps these visual embeddings into a transcriptomic
+foundation-model space, decodes gene-wise molecular signals, aggregates cell-level predictions to
+spatial spots, and evaluates reconstructed spatial expression against measured profiles.
 
-### Example Notebooks & Scripts
-- [notebooks/01_st_mil_hest_multi.ipynb](notebooks/01_st_mil_hest_multi.ipynb) (main training + prediction for multi-slides)
-- [notebooks/02_st_mil_hest_single.ipynb](notebooks/02_st_mil_hest_single.ipynb) (main training + prediction for single slide)
-- [scripts/convert_cellfm_ckpt.py](scripts/convert_cellfm_ckpt.py) (CellFM ckpt -> pt)
-- [configs/st_mil.yaml](configs/st_mil.yaml) (CLI config)
+## Highlights
 
-### Benchmark Notebooks (Comparison with Other Methods)
-We provide benchmark notebooks to evaluate and compare against existing spatial transcriptomics prediction methods:
-- [benchmark/01_HisToGene_benchmark.ipynb](benchmark/01_HisToGene_benchmark.ipynb) - HisToGene method
-- [benchmark/02_iStar_benchmark.ipynb](benchmark/02_iStar_benchmark.ipynb) - iStar method
-- [benchmark/03_mclSTExp_benchmark.ipynb](benchmark/03_mclSTExp_benchmark.ipynb) - mclSTExp method
-- [benchmark/04_sCellST_benchmark.ipynb](benchmark/04_sCellST_benchmark.ipynb) - sCellST method
-- [benchmark/05_THItoGene_benchmark.ipynb](benchmark/05_THItoGene_benchmark.ipynb) - THItoGene method
+- **Transcriptomic foundation priors**: visual features are adapted to CellFM/scGPT-compatible
+  latent spaces to support gene-aware molecular decoding.
+- **Cell-to-spot multiple-instance learning**: cell-level predictions are explicitly aggregated to
+  spatial transcriptomics spots for training and evaluation.
+- **Count-aware objective**: negative-binomial likelihood is used for overdispersed spatial
+  expression counts.
+- **Whole-slide reconstruction**: the pipeline supports dense inference and downstream spatial
+  visualization from routine H&E images.
+- **Benchmark-ready notebooks**: tracked notebooks provide standard Morpho-FM workflows and
+  comparisons to representative histology-to-transcriptomics baselines.
 
-### Required Packages
-Core (minimum to run notebooks):
-```bash
-pip install torch torchvision numpy pandas scipy h5py scanpy anndata matplotlib
-pip install timm safetensors opencv-python openslide-python
-```
-Optional (HEST download / geometry support):
-```bash
-pip install datasets huggingface_hub
-pip install geopandas pyogrio shapely
-```
+## Repository Layout
 
-### External Components (not tracked in git)
-If you use external toolkits/models, place them under `third_party/` (examples below):
-- `CellFM`: https://github.com/biomed-AI/CellFM
-- `LazySlide`: https://github.com/rendeirolab/LazySlide
-- `HEST`: https://github.com/mahmoodlab/hest/
-
-### Checkpoints + Vocab
-- Some external weights are MindSpore `.ckpt`.
-- Convert to PyTorch `.pt` via:
-```bash
-python scripts/convert_cellfm_ckpt.py --ckpt /path/to/CellFM_80M_weight.ckpt --out /path/to/CellFM_80M_weight.pt
-```
-- **80M weights must use** `expand_gene_info.csv` (not `gene_info.csv`).
-
-### Main Workflow
-1. **Training + Prediction**: open `notebooks/st_mil_hest_multi.ipynb`
-2. **Evaluation** (reads saved results): `notebooks/st_mil_hest_validate.ipynb`
-
-### Optional CLI (advanced)
-```bash
-PYTHONPATH=src python src/st_pipeline/train/train_cli.py --config configs/st_mil.yaml
-PYTHONPATH=src python src/st_pipeline/infer/predict_cli.py --config configs/st_mil.yaml --checkpoint checkpoints/st_mil/best_model.pt
+```text
+Morpho-FM/
++-- assets/cellfm/                 # Gene vocabulary files used by CellFM-based runs
++-- benchmark/                     # Baseline benchmark notebooks and HEST dataset helper
++-- configs/st_mil.yaml            # Example training/inference configuration
++-- Fig/workflow.png               # Manuscript workflow figure used in this README
++-- notebooks/                     # Main Morpho-FM and Xenium example notebooks
++-- scripts/convert_cellfm_ckpt.py # MindSpore CellFM checkpoint conversion helper
++-- src/st_pipeline/               # Core data, model, training, inference, and super-resolution code
 ```
 
-> Data, checkpoints, results are intentionally excluded from git. See `.gitignore` rules in your local repo.
+Large datasets, checkpoints, raw results, logs, and local figure-generation outputs are intentionally
+kept outside version control.
 
----
+## Installation
 
-<a name="中文"></a>
-## 🇨🇳 中文
+Create an isolated Python environment, then install the project dependencies:
 
-**Morpho-VC** 是一个“看图预测基因表达”的虚拟细胞系统。核心是 **Morpho-VC 自身的 ST-MIL 训练流程**，并支持按需接入外部组件。
-
-### 核心特点（我们的创新点）
-- **细胞→spot 的 ST-MIL 管线**：显式聚合 + NB 损失。
-- **大规模基因监督**：分块训练策略，降低显存占用。
-- **多切片训练/验证/测试**：更接近真实数据评估。
-- **Notebook 主流程**：`notebooks/st_mil_hest_multi.ipynb`。
-
-### 使用指南
-- [中文使用指南](docs/User_Guide_CN.md)
-
-### 示例脚本与 Notebook
-- [notebooks/st_mil_hest_multi.ipynb](notebooks/st_mil_hest_multi.ipynb)（主流程训练+预测）
-- [notebooks/st_mil_hest_validate.ipynb](notebooks/st_mil_hest_validate.ipynb)（仅评估）
-- [scripts/convert_cellfm_ckpt.py](scripts/convert_cellfm_ckpt.py)（权重转换）
-- [configs/st_mil.yaml](configs/st_mil.yaml)（CLI 配置）
-
-### Benchmark Notebooks（与其他方法的对比评估）
-我们提供了用于评估和对比现有空间转录组预测方法的 benchmark notebooks：
-- [benchmark/01_HisToGene_benchmark.ipynb](benchmark/01_HisToGene_benchmark.ipynb) - HisToGene 方法
-- [benchmark/02_iStar_benchmark.ipynb](benchmark/02_iStar_benchmark.ipynb) - iStar 方法
-- [benchmark/03_mclSTExp_benchmark.ipynb](benchmark/03_mclSTExp_benchmark.ipynb) - mclSTExp 方法
-- [benchmark/04_sCellST_benchmark.ipynb](benchmark/04_sCellST_benchmark.ipynb) - sCellST 方法
-- [benchmark/05_THItoGene_benchmark.ipynb](benchmark/05_THItoGene_benchmark.ipynb) - THItoGene 方法
-
-### 必备依赖
-核心依赖：
 ```bash
-pip install torch torchvision numpy pandas scipy h5py scanpy anndata matplotlib
-pip install timm safetensors opencv-python openslide-python
-```
-可选依赖（下载 HEST / 空间几何）：
-```bash
-pip install datasets huggingface_hub
-pip install geopandas pyogrio shapely
+pip install -r requirements.txt
 ```
 
-### 外部组件（不随 git 跟踪）
-如需外部组件，请手动放到 `third_party/`：
-- `CellFM`
-- `LazySlide`
-- `HEST`
-参考链接：
-- HEST: https://github.com/mahmoodlab/hest/
-- CellFM: https://github.com/biomed-AI/CellFM
-- LazySlide: https://github.com/rendeirolab/LazySlide
+For local development, run commands with the repository root on `PYTHONPATH`:
 
-### 权重与词表
-- 外部权重通常是 MindSpore `.ckpt`，需转换成 `.pt`。
-- 80M 权重必须使用 **`expand_gene_info.csv`**。
-
-### 推荐流程
-1) 打开 `notebooks/st_mil_hest_multi.ipynb` 进行训练和预测
-2) 打开 `notebooks/st_mil_hest_validate.ipynb` 做评估（读取已保存结果）
-
-### 可选命令行
 ```bash
-PYTHONPATH=src python src/st_pipeline/train/train_cli.py --config configs/st_mil.yaml
-PYTHONPATH=src python src/st_pipeline/infer/predict_cli.py --config configs/st_mil.yaml --checkpoint checkpoints/st_mil/best_model.pt
+export PYTHONPATH=src:$PYTHONPATH
 ```
 
-> 数据、权重、结果目录不会上传到 GitHub，请保持本地存储。
+On Windows PowerShell:
+
+```powershell
+$env:PYTHONPATH = "src;$env:PYTHONPATH"
+```
+
+## Data and Model Preparation
+
+Morpho-FM expects preprocessed spatial transcriptomics data and cell-level morphology embeddings.
+The example configuration in `configs/st_mil.yaml` contains the key paths:
+
+- `data.h5ad_path`: AnnData file containing measured spatial expression.
+- `data.cell_emb_h5`: HDF5 file containing cell morphology embeddings and cell barcodes.
+- `data.gene_vocab_path`: CellFM gene vocabulary file, such as `assets/cellfm/expand_gene_info.csv`.
+- `model.cellfm_checkpoint`: optional CellFM checkpoint converted to PyTorch format.
+
+If starting from a MindSpore CellFM checkpoint, convert it before training:
+
+```bash
+python scripts/convert_cellfm_ckpt.py \
+  --ckpt /path/to/CellFM_80M_weight.ckpt \
+  --out /path/to/CellFM_80M_weight.pt
+```
+
+For CellFM 80M weights, use `assets/cellfm/expand_gene_info.csv` as the gene vocabulary.
+
+## Quick Start
+
+Edit `configs/st_mil.yaml` so that all data, embedding, vocabulary, checkpoint, and output paths
+point to local files. Then run training:
+
+```bash
+PYTHONPATH=src python src/st_pipeline/train/train_cli.py \
+  --config configs/st_mil.yaml
+```
+
+Run spot-level prediction from a trained checkpoint:
+
+```bash
+PYTHONPATH=src python src/st_pipeline/infer/predict_cli.py \
+  --config configs/st_mil.yaml \
+  --checkpoint checkpoints/st_mil/best_model.pt
+```
+
+Add `--save_instance` to also save cell-level predictions.
+
+## Notebooks
+
+Tracked example notebooks:
+
+- `notebooks/01_st_mil_hest_multi.ipynb`: multi-slide Morpho-FM training and prediction.
+- `notebooks/02_st_mil_hest_single.ipynb`: single-slide Morpho-FM training and prediction.
+- `notebooks/101_xenium_preprocess.ipynb`: Xenium preprocessing example.
+- `notebooks/102_xenium_generate_cache.ipynb`: Xenium cache generation.
+- `notebooks/103_xenium_train.ipynb`: Xenium model training.
+- `notebooks/104_xenium_predict.ipynb`: Xenium prediction and visualization.
+
+## Benchmark Suite
+
+The public benchmark suite currently includes six representative histology-to-transcriptomics
+methods. These notebooks are the clean, tracked entry points intended for GitHub:
+
+| Method | Notebook | Scope |
+| --- | --- | --- |
+| HisToGene | `benchmark/01_HisToGene_benchmark.ipynb` | Transformer-based spot expression prediction |
+| iStar | `benchmark/02_iStar_benchmark.ipynb` | Image-to-ST prediction and spatial enhancement baseline |
+| mclSTExp | `benchmark/03_mclSTExp_benchmark.ipynb` | Contrastive learning baseline for ST expression prediction |
+| sCellST | `benchmark/04_sCellST_benchmark.ipynb` | Cell-aware spatial transcriptomics prediction baseline |
+| THItoGene | `benchmark/05_THItoGene_benchmark.ipynb` | Histology-to-gene transformer baseline |
+| HiST | `benchmark/06_HiST_benchmark.ipynb` | Histology-based spatial transcriptomics baseline |
+
+Local protocol variants, including kidney-specific, single-slice, INTxx, cached result, and
+method-source directories, are useful for experiments but should stay out of the public README
+unless they are intentionally cleaned and tracked.
+
+## External Components
+
+External repositories and pretrained weights are not vendored in this repository. If needed, place
+local copies under `third_party/` and keep them untracked:
+
+- CellFM: <https://github.com/biomed-AI/CellFM>
+- HEST: <https://github.com/mahmoodlab/hest/>
+- LazySlide: <https://github.com/rendeirolab/LazySlide>
+- sCellST: <https://github.com/mahmoodlab/sCellST>
+
+## Version-Control Hygiene
+
+Before publishing or pushing changes, check the exact files that will be included:
+
+```bash
+git status --short
+git diff -- README.md
+```
+
+For this README update, the only manuscript figure that needs to accompany the documentation is:
+
+```text
+Fig/workflow.png
+```
+
+Do not add local outputs such as `figures_*`, `results/`, `checkpoints/`, `logs/`, `scratch/`,
+temporary notebooks, or private manuscript files.
+
+## Citation
+
+If you use Morpho-FM, please cite the manuscript:
+
+```bibtex
+@article{huang2026morphofm,
+  title  = {Morpho-FM: spatial molecular reconstruction from routine H&E histology using transcriptomic foundation model priors},
+  author = {Huang, Jinjin and Feng, Xiao and Qu, Lianghu and Zheng, Lingling},
+  year   = {2026},
+  note   = {Manuscript in preparation}
+}
+```
+
+## Contact
+
+For questions about the method or manuscript, please contact Lingling Zheng at
+[zhengll33@mail.sysu.edu.cn](mailto:zhengll33@mail.sysu.edu.cn).
