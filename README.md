@@ -11,32 +11,61 @@ and Biotechnology, Sun Yat-sen University Shenzhen Campus, Shenzhen 518107, Chin
 <sup>*</sup> Correspondence: Lingling Zheng
 ([zhengll33@mail.sysu.edu.cn](mailto:zhengll33@mail.sysu.edu.cn); Tel. +86-0755-23260262)
 
-Morpho-FM reconstructs spatial molecular profiles from routine H&E histology by combining
-cell-level morphology representations with transcriptomic foundation model priors. The current
-implementation supports multiple-instance learning from cell embeddings to Visium-like spots,
-gene-aware decoding with CellFM/scGPT-style priors, negative-binomial supervision, and
-whole-slide prediction workflows.
+Morpho-FM is a weakly supervised framework for predicting spatial gene expression from routine
+H&E whole-slide images. It conditions a pretrained single-cell transcriptomic foundation-model
+prior on local histological neighbourhoods, enabling prediction at measured spatial transcriptomics
+locations, dense full-section molecular reconstruction, and re-aggregation of dense outputs back to
+the original measurement support for consistency checking.
+
+## Abstract
+
+Routine H&E histology captures tissue architecture at clinical scale, but it does not directly
+measure the transcriptional programmes that organize tumour, stromal, vascular, and immune
+regions. Spatial transcriptomics provides this molecular context, yet routine use remains limited by
+cost, workflow complexity, and sparse sampling. Morpho-FM addresses this gap by mapping cached
+whole-slide histology features into a transcriptomic decoder derived from a pretrained single-cell
+foundation model. Across harmonized prostate cancer benchmarks, Morpho-FM achieved mean
+per-gene Pearson correlations of 0.2855 in rotating single-slide evaluation and 0.2979 in
+multi-slide held-out validation. It reproduced this advantage across kidney cancer sections,
+retained predictive signal after external transfer to clear-cell renal cell carcinoma, and recovered
+ERBB2-enriched tumour compartments, boundary-associated molecular gradients, and
+annotation-aligned tissue domains in Xenium and HER2ST breast cancer datasets.
 
 ## Workflow
 
 ![Morpho-FM workflow](Fig/workflow.png)
 
-The workflow starts from H&E whole-slide images and matched spatial transcriptomics data. Tissue
-regions, spatial spots, and cell-level image patches are prepared first; visual encoders then extract
-cell morphology embeddings. Morpho-FM maps these visual embeddings into a transcriptomic
-foundation-model space, decodes gene-wise molecular signals, aggregates cell-level predictions to
-spatial spots, and evaluates reconstructed spatial expression against measured profiles.
+**Fig. 1 overview.** Morpho-FM uses a shared coordinate system for prediction at measured
+locations and dense full-section reconstruction.
+
+**a, End-to-end workflow.** Raw H&E whole-slide images and paired spatial transcriptomics
+measurements are aligned into a common tissue coordinate system. A cached whole-slide histology
+feature grid is constructed offline with a Hierarchical Image Pyramid Transformer (HIPT) encoder.
+The same grid supports both spot-supervised multiple-instance learning (MIL) and dense decoding
+over the tissue mask. Dense outputs can be re-aggregated to the original measurement support to
+check consistency with spot-level prediction.
+
+**b, Local disk-shaped MIL bags.** For each measured ST location, Morpho-FM selects grid
+positions within the corresponding spot-radius neighbourhood. These local histology features form
+a disk-shaped MIL bag tied to that measured molecular observation.
+
+**c, Visual adapter and transcriptomic decoding.** Instance features from each MIL bag are
+projected by a lightweight morphology-to-transcriptome adapter into CellFM, used here as the
+single-cell transcriptomic foundation-model decoder. The decoder produces instance-level
+expression rates, which are mean-aggregated to obtain the bag-level spatial expression prediction.
 
 ## Highlights
 
-- **Transcriptomic foundation priors**: visual features are adapted to CellFM/scGPT-compatible
-  latent spaces to support gene-aware molecular decoding.
-- **Cell-to-spot multiple-instance learning**: cell-level predictions are explicitly aggregated to
-  spatial transcriptomics spots for training and evaluation.
+- **Transcriptomic foundation priors**: cached histology features are adapted into a pretrained
+  single-cell transcriptomic decoder, with CellFM used as the main foundation-model prior.
+- **Shared-coordinate prediction and reconstruction**: the same HIPT feature grid supports
+  prediction at measured ST locations and dense full-section molecular reconstruction.
+- **Disk-shaped spot-supervised MIL**: each ST measurement supervises a local bag of grid
+  positions within the spot-radius neighbourhood.
+- **Consistency-aware dense decoding**: dense tissue-wide outputs can be re-aggregated to the
+  original measurement support for direct consistency checking.
 - **Count-aware objective**: negative-binomial likelihood is used for overdispersed spatial
-  expression counts.
-- **Whole-slide reconstruction**: the pipeline supports dense inference and downstream spatial
-  visualization from routine H&E images.
+  expression counts during spot-level supervision.
 - **Benchmark-ready notebooks**: tracked notebooks provide standard Morpho-FM workflows and
   comparisons to representative histology-to-transcriptomics baselines.
 
