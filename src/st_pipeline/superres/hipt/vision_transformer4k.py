@@ -1,3 +1,6 @@
+# Derived from Mahmood Lab HIPT.
+# Licensed under Apache-2.0 with the Commons Clause in this directory.
+
 import math
 import warnings
 from functools import partial

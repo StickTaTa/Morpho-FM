@@ -5,7 +5,7 @@ data:
   cell_patch_h5: ""
   cell_emb_h5: ""
   genes: "HVG:1000"
-  gene_vocab_path: "assets/cellfm/gene_info.csv"
+  gene_vocab_path: "third_party/CellFM/csv/expand_gene_info.csv"
   spot_radius_px: 0
   batch_size: 32
   num_workers: 4

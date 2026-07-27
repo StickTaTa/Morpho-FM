@@ -1,3 +1,7 @@
+# PyTorch compatibility port derived from CellFM retention components.
+# This file is excluded from Morpho-FM's Apache-2.0 license; see
+# THIRD_PARTY_NOTICES.md for the audited upstream revision and status.
+
 from __future__ import annotations
 
 import math
