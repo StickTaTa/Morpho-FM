@@ -82,13 +82,13 @@ only within the negative-binomial likelihood during model fitting.
 - **Count-aware objective**: negative-binomial likelihood is used for overdispersed spatial
   expression counts during spot-level supervision.
 - **Benchmark-ready notebooks**: tracked notebooks provide standard Morpho-FM workflows and
-  comparisons to representative histology-to-transcriptomics baselines.
+  comparisons to the eight comparison methods reported in the manuscript.
 
 ## Repository Layout
 
 ```text
 Morpho-FM/
-+-- benchmark/                     # Baseline benchmark notebooks and HEST dataset helper
++-- benchmark/                     # Comparison-method benchmark notebooks and HEST dataset helper
 +-- configs/st_mil.yaml            # Example training/inference configuration
 +-- Fig/workflow.png               # Manuscript workflow figure used in this README
 +-- LICENSE                        # Apache License 2.0 for original Morpho-FM code
@@ -212,19 +212,34 @@ Tracked example notebooks:
 
 ## Benchmark Suite
 
-The manuscript benchmark compares Morpho-FM with five representative
-histology-to-expression methods: HisToGene, iStar, mclSTExp, sCellST, and
-HiST. A THItoGene notebook is retained as an additional compatibility workflow
-but is not part of the five-method comparison reported in the manuscript.
+The manuscript benchmark compares Morpho-FM with eight comparison methods,
+listed here in the order in which they appear in the manuscript: ST-Net,
+HisToGene, mclSTExp, iStar, sCellST, HiST, Path2Space and STimage. A THItoGene
+notebook is retained as an additional compatibility workflow but is not part of
+the eight-method comparison reported in the manuscript.
 
 | Method | Notebook | Reported in manuscript | Scope |
 | --- | --- | --- | --- |
+| ST-Net | `benchmark/09_STNet_benchmark.ipynb` | Yes | Image-tile regression on H&E windows |
 | HisToGene | `benchmark/01_HisToGene_benchmark.ipynb` | Yes | Transformer-based spot expression prediction |
-| iStar | `benchmark/02_iStar_benchmark.ipynb` | Yes | Image-to-ST prediction and spatial enhancement |
 | mclSTExp | `benchmark/03_mclSTExp_benchmark.ipynb` | Yes | Contrastive histology-to-expression prediction |
+| iStar | `benchmark/02_iStar_benchmark.ipynb` | Yes | Image-to-ST prediction and spatial enhancement |
 | sCellST | `benchmark/04_sCellST_benchmark.ipynb` | Yes | Cell-aware expression prediction |
+| HiST | `benchmark/06_HiST_benchmark.ipynb` | Yes | Multiscale fusion of histology and spatial transcriptomics |
+| Path2Space | `benchmark/07_Path2Space_benchmark.ipynb` | Yes, adapted configuration | Regression on pretrained pathology features |
+| STimage | `benchmark/08_STimage_benchmark.ipynb` | Yes, feature-cached variant | Per-gene negative-binomial output heads |
 | THItoGene | `benchmark/05_THItoGene_benchmark.ipynb` | No; additional workflow | Histology-to-gene transformer |
-| HiST | `benchmark/06_HiST_benchmark.ipynb` | Yes | Histology-based spatial transcriptomics prediction |
+
+The kidney-specific variants of the three most recently added methods are
+provided alongside the rotating protocols: `benchmark/07_Path2Space_benchmark_kidney_INT21.ipynb`,
+`benchmark/08_STimage_benchmark_kidney_INT21.ipynb`,
+`benchmark/09_STNet_benchmark_kidney_INT21.ipynb`, and the single-slide
+INT18-to-INT21 transfers in `benchmark/108_STimage_benchmark_single_kidney_INT18_to_INT21.ipynb`
+and `benchmark/109_STNet_benchmark_single_kidney_INT18_to_INT21.ipynb`.
+All comparison methods in a given protocol share the same sections, gene panel
+and evaluation function; where the manuscript reports a method in an adapted
+configuration, the adaptation is stated in the manuscript and its supplementary
+note.
 
 Local protocol variants, including kidney-specific, single-slice, INTxx, cached result, and
 method-source directories, are useful for experiments but remain local and
