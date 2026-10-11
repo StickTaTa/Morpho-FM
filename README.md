@@ -48,26 +48,30 @@ routine histology.
 
 ![Morpho-FM workflow](Fig/workflow.png)
 
-**Fig. 1 overview.** Morpho-FM couples local H&E morphology to transcriptomic
-foundation-model decoding in a shared coordinate system.
+**Fig. 1 overview.** Morpho-FM couples local histology to a pretrained transcriptomic
+decoder in a shared coordinate system.
 
-**a, End-to-end workflow.** Raw H&E whole-slide images and paired spatial transcriptomics
-measurements are aligned into a common tissue coordinate system. A cached whole-slide histology
-feature grid is constructed offline with a Hierarchical Image Pyramid Transformer (HIPT) encoder.
-The same grid supports relative-expression prediction at measured locations and candidate dense
-full-section relative-expression inference over the tissue mask. Dense outputs can be re-aggregated
-to the original measurement support for consistency evaluation; unmeasured grid positions do not
-have direct molecular ground truth.
+**a, Training and inference workflow in a shared spatial grid.** A resized and padded H&E
+whole-slide image is encoded with a Hierarchical Image Pyramid Transformer (HIPT) encoder to
+construct a cached whole-slide histology feature grid. Spatial coordinates from the paired
+spatial transcriptomics measurements register the measurement supports to this grid, and the
+measured gene expression profiles serve as supervision targets. The feature grid supports
+observed-location relative-expression prediction through local multiple-instance learning (MIL)
+bags and candidate dense relative-expression decoding over valid positions under the tissue mask.
+Dense outputs can be re-aggregated to the original measurement support for consistency
+evaluation; unmeasured grid positions do not have direct molecular ground truth.
 
-**b, Local disk-shaped MIL bags.** For each measured ST location, Morpho-FM selects grid
-positions within the corresponding spot-radius neighbourhood. These local histology features form
-a disk-shaped MIL bag tied to that measured molecular observation.
+**b, Local disk-shaped MIL bag construction.** At each spatial transcriptomics measurement
+location, feature-grid positions within the corresponding measurement support are selected to
+form a MIL bag, so that prediction uses local histological context rather than an isolated image
+patch.
 
-**c, Visual adapter and transcriptomic decoding.** Instance features from each MIL bag are
-projected by a lightweight morphology-to-transcriptome adapter into CellFM, used here as the
-single-cell transcriptomic foundation-model decoder. Instance-level relative-expression
-predictions are mean-aggregated at the observed location. Location-specific size factors are used
-only within the negative-binomial likelihood during model fitting.
+**c, Morphology-to-transcriptome adaptation and transcriptomic decoding.** Each instance
+feature is projected through the lightweight morphology-to-transcriptome adapter into the CellFM
+latent space and used to condition the transcriptomic decoder initialised from CellFM
+pretraining. Instance-level relative-expression predictions are mean-aggregated across the bag to
+produce the observed-location relative-expression prediction. Location-specific size factors are
+used only within the negative-binomial likelihood during model fitting, not during inference.
 
 ## Highlights
 
