@@ -134,6 +134,7 @@ Morpho-FM Apache-2.0 content. Local source checkouts belong under the ignored
 | HEST | <https://github.com/mahmoodlab/HEST> | `2c777630b1e8a74db6b36ef05582de3bd52ccb61` | Dataset access and preprocessing |
 | LazySlide | <https://github.com/rendeirolab/LazySlide> | `6b9b0e760e83f8220a47b9c03b573fa1519d8aa0` | Optional whole-slide processing |
 | sCellST | <https://github.com/loicchadoutaud/sCellST> | `96c3aa2af19e928920b351343272846d1f74fac0` | Benchmark implementation |
+| ST-Net | <https://github.com/bryanhe/ST-Net> | `43022c1cb7de1540d5a74ea2338a12c82491c5ad` | Benchmark implementation |
 
 For example, obtain the CellFM vocabulary without adding CellFM source to this repository:
 

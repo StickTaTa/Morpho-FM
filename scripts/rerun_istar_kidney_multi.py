@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+"""Re-run the iStar kidney multi-slide fold, to recover the prediction Fig. 3a needs.
+
+Why this exists
+---------------
+Fig. 3a shows the per-gene PCC distribution of every method on the held-out INT21
+section under the fixed multi-slide split. Seven of the nine methods store a
+`pred_bag.npy` for that fold. iStar does not: its row is reconstructed by
+`load_istar_multi` from `benchmark/results/kidney_INT21/istar/data/INT21/cnts-super/*.pickle`,
+the super-resolved maps the iStar run wrote.
+
+Those files are gone. The notebook that produced them sets `PRUNE_TRAIN_INTERMEDIATES =
+True`, and the 2026-04-30 checkpoint cleanup removed the rest. No copy survives on any
+local drive or on the cluster (checked), so the only way back is to run the fold again.
+
+What was in the way
+-------------------
+`benchmark/02_iStar_benchmark_kidney_INT21.ipynb` could not simply be re-run. Every step
+that touched scikit-image or scikit-learn died with 0xC06D007F and printed nothing.
+The chain:
+
+    threadpoolctl.MKLController.get_num_threads()
+      -> getattr(self.dynlib, "MKL_Get_Max_Threads")()
+      -> OSError: [WinError -1066598273] Windows Error 0xc06d007f
+
+`mkl_rt.2.dll` is a dispatcher; resolving the symbol works, calling it fails, because the
+threading layer it delay-loads into cannot be loaded. Setting `MKL_THREADING_LAYER`
+avoids the broken layer:
+
+    unset        -> fails
+    GNU          -> fails
+    SEQUENTIAL   -> MKL_Get_Max_Threads() == 1
+    TBB          -> MKL_Get_Max_Threads() == 24
+
+So the run below exports `MKL_THREADING_LAYER=SEQUENTIAL`. Nothing in numpy uses MKL --
+`numpy.show_config()` reports cblas/blas, i.e. OpenBLAS -- so this changes no numerics,
+it only stops the MKL dispatcher from being probed. No file in the environment is
+touched.
+
+The existing metrics.json and logs are copied aside first, and the April preprocessing
+artifacts are backed up too -- the plan's red line is that a run must not overwrite a
+result directory it is re-deriving.
+"""
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+NOTEBOOK = ROOT / "benchmark" / "02_iStar_benchmark_kidney_INT21.ipynb"
+RESULT_DIR = ROOT / "benchmark" / "results" / "kidney_INT21" / "istar"
+DATA_ROOT = RESULT_DIR / "data"
+AUDIT = ROOT / "results" / "benchmark_audit"
+GEN_DIR = AUDIT / "istar_rerun"
+ENV = "istar_bench"
+
+# 1 = setup + geneset, 4 = HEST->iStar conversion, 6 = iStar preprocessing,
+# 8 = sequential training, 10 = prediction on INT21, 12 = evaluation
+CELLS = [1, 4, 6, 8, 10, 12]
+
+# files the notebook regenerates that the April run had already produced
+APRIL_ARTIFACTS = ["he-scaled.jpg", "he.jpg", "locs.tsv", "radius.txt", "mask-small.png"]
+KIDNEY_SLIDES = ["INT13", "INT14", "INT15", "INT17", "INT18", "INT19", "INT21", "INT24"]
+
+
+def env_python(env_name: str) -> str:
+    candidate = Path("C:/ProgramData/anaconda3/envs") / env_name / "python.exe"
+    return str(candidate) if candidate.exists() else sys.executable
+
+
+def load_code() -> str:
+    nb = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+    chunks = []
+    for idx in CELLS:
+        cell = nb["cells"][idx]
+        if cell["cell_type"] != "code":
+            raise ValueError(f"cell {idx} is not code")
+        chunks.append(f"\n\n# %% notebook cell {idx}\n")
+        chunks.append("".join(cell.get("source", [])))
+    return "".join(chunks)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+
+    GEN_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    code = load_code()
+    before = code.count("PRUNE_TRAIN_INTERMEDIATES = True")
+    code = code.replace("PRUNE_TRAIN_INTERMEDIATES = True", "PRUNE_TRAIN_INTERMEDIATES = False")
+    if before != 1:
+        raise SystemExit(f"expected exactly one PRUNE flag, found {before}")
+
+    if not args.dry_run:
+        backup = RESULT_DIR.parent / f"istar_before_rerun_{stamp}"
+        (backup / "logs").mkdir(parents=True, exist_ok=True)
+        for name in ("metrics.json",):
+            src = RESULT_DIR / name
+            if src.exists():
+                shutil.copy2(src, backup / name)
+        if (RESULT_DIR / "logs").exists():
+            shutil.copytree(RESULT_DIR / "logs", backup / "logs", dirs_exist_ok=True)
+        april = backup / "april_preprocessing_artifacts"
+        for slide in KIDNEY_SLIDES:
+            (april / slide).mkdir(parents=True, exist_ok=True)
+            for name in APRIL_ARTIFACTS:
+                src = DATA_ROOT / slide / name
+                if src.exists():
+                    shutil.copy2(src, april / slide / name)
+        print(f"[backup] {backup}")
+        print(f"[backup] April preprocessing artifacts -> {april}")
+
+    header = (
+        "# Auto-generated by scripts/rerun_istar_kidney_multi.py\n"
+        "# iStar kidney INT13/14/15/17/18/19 + INT24 -> INT21, PRUNE_TRAIN_INTERMEDIATES=False\n"
+        "# MKL_THREADING_LAYER=SEQUENTIAL must be set in the environment (see the runner).\n"
+        "import matplotlib\nmatplotlib.use('Agg')\n"
+    )
+    script = GEN_DIR / "iStar_kidney_INT21_rerun.py"
+    script.write_text(header + code, encoding="utf-8")
+    log = GEN_DIR / f"run_{stamp}.log"
+    print(f"[script] {script}")
+    print(f"[log   ] {log}")
+    if args.dry_run:
+        return
+
+    env = {
+        **os.environ,
+        "MORPHO_VC_ROOT": str(ROOT),
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "MPLBACKEND": "Agg",
+        # without this every skimage / sklearn call dies with 0xC06D007F; see module docstring
+        "MKL_THREADING_LAYER": "SEQUENTIAL",
+    }
+    start = time.time()
+    with log.open("w", encoding="utf-8", errors="replace") as fh:
+        fh.write(f"[start] {datetime.now().isoformat(timespec='seconds')}\n\n")
+        fh.flush()
+        proc = subprocess.run([env_python(ENV), "-u", str(script)], cwd=str(ROOT), env=env,
+                              stdout=fh, stderr=subprocess.STDOUT, text=True)
+        fh.write(f"\n[end] {datetime.now().isoformat(timespec='seconds')} "
+                 f"returncode={proc.returncode} seconds={time.time() - start:.1f}\n")
+
+    metrics = RESULT_DIR / "metrics.json"
+    if metrics.exists():
+        print("[done ] Mean_Pearson = %s" % json.loads(metrics.read_text())["Mean_Pearson"])
+    print("[done ] returncode=%s  (%.1f min)" % (proc.returncode, (time.time() - start) / 60))
+
+
+if __name__ == "__main__":
+    main()

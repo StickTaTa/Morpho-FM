@@ -47,6 +47,7 @@ ignored working copies. Morpho-FM-authored benchmark notebooks remain tracked.
 | mclSTExp | [ZhicengShi/mclSTExp](https://github.com/ZhicengShi/mclSTExp) | `027b6aa95ddd4ef0307bf80aa103c5381b01294c` | No root license file | Benchmark implementation | No |
 | THItoGene | [yrjia1015/THItoGene](https://github.com/yrjia1015/THItoGene) | `13daf4d9c2531a74937dfedeeb4cb905cf0bf6cb` | No root license file | Additional benchmark workflow | No |
 | HiST | [Yelab2020/HiST](https://github.com/Yelab2020/HiST) | `1a15c41e12d659fad04db3ad5a3ad26fbe6ef665` | MIT | Benchmark implementation | No |
+| ST-Net | [bryanhe/ST-Net](https://github.com/bryanhe/ST-Net) | `43022c1cb7de1540d5a74ea2338a12c82491c5ad` | MIT, declared in `setup.py` classifiers; the repository carries no LICENSE file at this revision | Benchmark implementation | No |
 
 ## Study datasets
 

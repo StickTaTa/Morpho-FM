@@ -61,6 +61,24 @@ def _thumbnail_wsi(wsi_path: Path, max_dim: int = 16000):
     except Exception as e:
         warnings.warn(f"openslide failed for {wsi_path}: {e}. Falling back to tifffile.")
 
+    # Some datasets ship standard raster images (jpg/png or non-pyramidal tiff)
+    # rather than OpenSlide-compatible WSIs. PIL is the fastest safe fallback.
+    try:
+        pil_img = Image.open(wsi_path).convert("RGB")
+        img = np.array(pil_img)
+        h0, w0 = img.shape[:2]
+        scale = min(max_dim / max(w0, h0), 1.0)
+        if scale < 1.0:
+            new_w = max(1, int(w0 * scale))
+            new_h = max(1, int(h0 * scale))
+            bilinear = getattr(getattr(Image, "Resampling", Image), "BILINEAR")
+            pil_img = pil_img.resize((new_w, new_h), bilinear)
+            img = np.array(pil_img)
+        new_h, new_w = img.shape[:2]
+        return img, (w0, h0), (new_w, new_h)
+    except Exception:
+        pass
+
     try:
         import tifffile as tiff
     except Exception as e:
@@ -325,12 +343,8 @@ def prepare_slide_cache(
     radius_path = slide_dir / "radius.txt"
 
     if force or (not locs_path.exists()) or (not cnts_path.exists()):
-        try:
-            import scanpy as sc
-            adata = sc.read_h5ad(spatial_dir / f"{slide_id}.h5ad")
-        except Exception:
-            import anndata as ad
-            adata = ad.read_h5ad(spatial_dir / f"{slide_id}.h5ad")
+        import anndata as ad
+        adata = ad.read_h5ad(spatial_dir / f"{slide_id}.h5ad")
 
         # counts
         import pandas as pd
